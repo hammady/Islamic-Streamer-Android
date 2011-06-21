@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:orientation="vertical"
+  android:layout_width="match_parent"
+  android:layout_height="20pt">
+    <RelativeLayout
+    android:orientation="vertical"
+    android:layout_width="match_parent" android:layout_weight="1"
+    android:id="@+id/alaListItemId"
+    android:layout_height="fill_parent">   
+        <TextView
+        android:layout_alignParentLeft="true"
+        android:layout_y="5pt"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:focusable="false" android:focusableInTouchMode="false"
+        android:id="@+id/tvSurahName" />
+        <TextView
+        android:layout_x="25pt"
+        android:layout_y="5pt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/tvSurahId"
+        android:textColor="#FFFFFF"
+        android:visibility="invisible" />
+        <TextView
+        android:layout_x="25pt"
+        android:layout_y="5pt"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/tvItemPosition"
+        android:textColor="#FFFFFF"
+        android:visibility="invisible" />
+        <CheckBox
+        android:layout_alignParentRight="true"
+        android:layout_y="0pt"
+        android:id="@+id/cbListViewItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:saveEnabled="true"
+        android:focusable="false" android:focusableInTouchMode="false"
+        android:checked="false"/>
+        <ImageView 
+        android:src="@drawable/playing2"
+        android:layout_width="20px"
+        android:layout_height="20px"
+        android:layout_x="110pt"
+        android:saveEnabled="true"
+        android:layout_y="11pt"
+        android:id="@+id/ivImg"
+        android:visibility="invisible"
+        />
+    </RelativeLayout>
+</LinearLayout>

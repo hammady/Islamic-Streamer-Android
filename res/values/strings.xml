@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, QuranSteaming!</string>
+    <string name="app_name">حقيبة المسلم/Muslem Bag</string>
+<string name="tvLang">Select Language</string>
+<string name="tvLang_ar">اختر اللغه</string>
+<string-array name="Category">
+<item>_id</item>
+<item>category_name_a</item>
+<item>category_name_e</item>
+</string-array>
+<string-array name="Language">
+<item>العربيه</item>
+<item>English</item>
+</string-array>
+<string-array name="Server">
+<item>_id</item>
+<item>server_name_e</item>
+<item>server_name_a</item>
+<item>url</item>
+</string-array>
+<string-array name="shaikhSurah">
+<item>_id</item>
+<item>shaikh_id</item>
+<item>surah_id</item>
+</string-array>
+<string-array name="shaikh">
+<item>_id</item>
+<item>shaikh_name_a</item>
+<item>shaikh_name_e</item>
+<item>url</item>
+</string-array>
+<string-array name="surah">
+<item>a._id</item>
+<item>a.surah_name_a</item>
+<item>a.surah_name_e</item>
+<item>c._id is_checked</item>
+<item>b.is_playing</item>
+<item>a.url</item>
+</string-array>
+<string-array name="surah_url">
+<item>_id</item>
+<item>url</item>
+<item>surah_name_e</item>
+<item>surah_name_a</item>
+</string-array>
+<string name="tvCategory">Select Category</string>
+<string name="tvShaikh">Select Shaikh</string>
+<string name="btnStartStream">Start Streaming</string>
+<string name="tvSurah">Listen To</string>
+<string name="btnStopStream">Stop</string>
+<string name="btnViewSurah">View available Surah</string>
+<string name="btnDownload">Download</string>
+<string name="btnAddToPlaylist">Play Selected</string>
+<string name="iListen">Listen</string>
+<string name="iDownload">Download</string>
+<string name="iSettings">Settings</string>
+<string name="tvCategory_ar">اختر مجموعه</string>
+<string name="tvShaikh_ar">اختر الشيخ</string>
+<string name="btnStopStream_ar">توقف</string>
+<string name="btnDownload_ar">تحميل</string>
+<string name="btnAddToPlaylist_ar">الاستماع للمختاره</string>
+<string name="btnViewSurah_ar">مشاهدة السور المتاحه</string>
+<string name="iListen_ar">استمع</string>
+<string name="iDownload_ar">تحميل</string>
+<string name="iSettings_ar">الاعدادات</string>
+<string name="tvDefSite">Site To Use</string>
+<string name="tvDefSite_ar">الموقع المستخدم</string>
+<string name="txtStreamingText">Streaming Now</string>
+<string name="txtStreamingText_ar">التدفق يتم الان</string>
+<string name="txtStreamingWaitText">Please wait</string>
+<string name="txtStreamingWaitText_ar">من فضلك الانتظار</string>
+<string name="Sorry">Sorry</string>
+<string name="Sorry_ar">نعتذر</string>
+<string name="noInternetConnection">Can\'t reach the server, No internet connection</string>
+<string name="noInternetConnection_ar">تعذر الوصول الى المصدر، لا يوجد اتصال بالانترنت</string>
+</resources>

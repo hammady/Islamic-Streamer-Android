@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AbsoluteLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="fill_parent"
+  android:layout_height="fill_parent">
+  <TextView android:id="@+id/tvLang" android:layout_width="wrap_content" android:layout_height="wrap_content" 
+  android:text="@string/tvLang_ar" 
+  ></TextView>
+  <Spinner
+  android:layout_x="0pt" android:layout_y="20pt"  
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content"
+  android:id="@+id/spnLang"
+  android:entries="@array/Language">
+  
+  </Spinner>
+  
+  <TextView android:id="@+id/tvDefSite" android:layout_width="wrap_content" 
+  android:layout_height="wrap_content"  
+  android:layout_x="0pt" android:layout_y="45pt" 
+  android:text="@string/tvDefSite_ar"
+  android:visibility="invisible" 
+  ></TextView>
+  <Spinner
+  android:layout_x="0pt" android:layout_y="55pt"  
+  android:layout_width="fill_parent"
+  android:layout_height="wrap_content"
+  android:id="@+id/spnSites"
+  android:visibility="invisible"
+  >
+  
+  </Spinner>
+  
+</AbsoluteLayout>
