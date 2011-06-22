@@ -74,6 +74,8 @@ public ListAdapter(Context context, int textViewResourceId,
         TextView tvItemPosition =(TextView)v.findViewById(R.id.tvItemPosition);
         ImageView ivImg =(ImageView)v.findViewById(R.id.ivImg);
         CheckBox cb = (CheckBox)v.findViewById(R.id.cbListViewItem);
+        cb.setOnCheckedChangeListener(null);
+        cb.setChecked(getItem(position).isChecked);
         if(cb.getVisibility()!=View.VISIBLE)
 	        if (getItem(position).isChecked)
 	        {
@@ -111,14 +113,14 @@ public ListAdapter(Context context, int textViewResourceId,
 				str="insert into playlist_item(playlist_id, shaikh_surah_id) values('1','"+itemValue+"')";
 				if(!isManuallyChecked)
 				{
-					((ProjectObject)((ListView) ((View)v.getParent()).getParent()).getAdapter().getItem(position)).isChecked=true;
+					ListAdapter.this.getItem(position).isChecked=true;
 					QuranSteaming.selectedCount++;
 				}
 			}
 			else
 			{
 				str="delete from playlist_item where playlist_id='1' and shaikh_surah_id='"+itemValue+"'";
-				((ProjectObject)((ListView) ((View)v.getParent()).getParent()).getAdapter().getItem(position)).isChecked=false;
+				ListAdapter.this.getItem(position).isChecked=false;
 				QuranSteaming.selectedCount--;
 			}
 			View v2=((View)((View)((View)((View)((View)((View)v.getParent()).getParent()).getParent()).getParent()).getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout));
