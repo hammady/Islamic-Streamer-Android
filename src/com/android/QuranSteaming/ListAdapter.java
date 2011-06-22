@@ -74,13 +74,13 @@ public ListAdapter(Context context, int textViewResourceId,
         TextView tvItemPosition =(TextView)v.findViewById(R.id.tvItemPosition);
         ImageView ivImg =(ImageView)v.findViewById(R.id.ivImg);
         CheckBox cb = (CheckBox)v.findViewById(R.id.cbListViewItem);
-        cb.setOnCheckedChangeListener(null);
-        cb.setChecked(getItem(position).isChecked);
         if(cb.getVisibility()!=View.VISIBLE)
 	        if (getItem(position).isChecked)
 	        {
 	        	QuranSteaming.selectedCount ++;
 	        }
+        cb.setOnCheckedChangeListener(null);
+        cb.setChecked(getItem(position).isChecked);
         cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 		@Override
 		public void onCheckedChanged(CompoundButton arg0, boolean isChecked) {

@@ -21,7 +21,7 @@ public class DBAdapter{
  
     private static String DB_NAME = "quranstreamingDB";
     private static final String TAG = "DBAdapter";    
-    private static final int DATABASE_VERSION = 13; 
+    private static final int DATABASE_VERSION = 16; 
     private DatabaseHelper DBHelper;
     private SQLiteDatabase db;
     private static Context context;

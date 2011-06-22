@@ -36,6 +36,7 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemSelectedListener;
 
@@ -140,8 +141,20 @@ public class QuranSteaming extends Activity  {
 			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 					long arg3) {
 				// TODO Auto-generated method stub
-				return;
-				
+				final ImageView ivImg =(ImageView)arg0.findViewById(R.id.ivImg);
+				View menuView = ((View)((View)((View)((View)((View)arg0.getParent()).getParent()).getParent()).getParent()).getParent()).findViewById(R.id.alaMenuLayout);
+				if(menuView.findViewById(R.id.btnStopstream).getVisibility()==View.VISIBLE)
+				{
+					ivImg.setVisibility(View.INVISIBLE);
+					QuranSteaming.stopStreamingAudio(arg0);
+					return;
+				}
+				//v2.setVisibility(View.VISIBLE);
+				//v2.findViewById(R.id.btnStopstream).setVisibility(View.VISIBLE);
+				TextView tvSurahId =(TextView)arg0.findViewById(R.id.tvSurahId);
+				QuranSteaming.selectedSurah = Long.parseLong(tvSurahId.getText().toString());
+				QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah); 
+				Listen(ivImg,arg0);
 			}
 		});
 		
@@ -226,6 +239,10 @@ public class QuranSteaming extends Activity  {
 		
 		});				
 		fillCategoy(); 
+    }
+    private void Listen(ImageView v,View v2)
+    {
+    	QuranSteaming.startStreamingAudio(v,QuranSteaming.selectedSurahURL,v2);
     }
     @Override
 	public boolean onCreateOptionsMenu(Menu menu) {
@@ -354,6 +371,7 @@ public class QuranSteaming extends Activity  {
 				sortKey = "shaikh_name_a";
  	    	cr=dbaAdabter.getData("shaikh", tableColumns, "category_id='"+categoryId+"'",select,sortKey);
  	    	startManagingCursor(cr);
+ 	    	cr.moveToFirst();
  	    }
 	    catch(Exception ex)
 	    {
@@ -426,7 +444,7 @@ public class QuranSteaming extends Activity  {
     		if(language.equalsIgnoreCase("EN"))
         		progDailog = ProgressDialog.show(context,r.getString(R.string.txtStreamingText), r.getString(R.string.txtStreamingWaitText),true);
         	else
-        		progDailog = ProgressDialog.show(context,r.getString(R.string.txtStreamingText_ar), r.getString(R.string.txtStreamingWaitText_ar),true);
+        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.txtStreamingText_ar)), ArabicUtilities.reshape(r.getString(R.string.txtStreamingWaitText_ar)),true);
     		v2.setVisibility(View.VISIBLE);
     		v2.findViewById(R.id.btnStopstream).setVisibility(View.VISIBLE);
     	}
@@ -435,7 +453,7 @@ public class QuranSteaming extends Activity  {
     		if(language.equalsIgnoreCase("EN"))
         		progDailog = ProgressDialog.show(context,r.getString(R.string.Sorry), r.getString(R.string.noInternetConnection),true);
         	else
-        		progDailog = ProgressDialog.show(context,r.getString(R.string.Sorry_ar), r.getString(R.string.noInternetConnection_ar),true);
+        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.Sorry_ar)), ArabicUtilities.reshape(r.getString(R.string.noInternetConnection_ar)),true);
     	}
 		new Thread() {
             @Override
@@ -485,7 +503,6 @@ public class QuranSteaming extends Activity  {
             }
         }.start();    	
     }
-	
 	/**
 	   * Checks if the phone has network connection.
 	   * 
@@ -618,12 +635,12 @@ public class QuranSteaming extends Activity  {
 	    	while(!cr.isLast())
 	    	{
 	    		o=new ProjectObject();
-	    		o.surahName= cr.getString(nameInd);
+	    		o.surahName= ArabicUtilities.reshape(cr.getString(nameInd));
 		    	o.surahId= Integer.parseInt(cr.getString(idInd));
 		    	if((cr.getString(idIsPlaying) != null)&&(cr.getString(idIsPlaying).length() != 0))
 		    		o.isPlaying = true;
-		    	if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
-		    		o.isChecked = true;
+		    	//if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
+		    		o.isChecked = false;
 	    		Surahs.add(o);	    		
 	    		cr.moveToNext();
 	    	}
@@ -632,7 +649,7 @@ public class QuranSteaming extends Activity  {
 	    		o.isPlaying = true;
 	    	if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
 	    		o.isChecked = true;
-	    	o.surahName= cr.getString(nameInd);
+	    	o.surahName= ArabicUtilities.reshape(cr.getString(nameInd));
 	    	o.surahId= Integer.parseInt(cr.getString(idInd));;
 	    	Surahs.add(o);
 	    	arrayAdapter.notifyDataSetChanged();
@@ -727,7 +744,7 @@ public class QuranSteaming extends Activity  {
     		if(language.equalsIgnoreCase("EN"))
         		progDailog = ProgressDialog.show(context,getApplication().getString(R.string.Sorry), getApplication().getString(R.string.noInternetConnection),true);
         	else
-        		progDailog = ProgressDialog.show(context,getApplication().getString(R.string.Sorry_ar), getApplication().getString(R.string.noInternetConnection_ar),true);
+        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(getApplication().getString(R.string.Sorry_ar)), ArabicUtilities.reshape(getApplication().getString(R.string.noInternetConnection_ar)),true);
     		new Thread(){
 				@Override
 	            public void run() {
