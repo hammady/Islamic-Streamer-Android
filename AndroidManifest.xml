@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
       package="com.android.QuranSteaming"
-      android:versionName="2.2" android:versionCode="2">
+      android:versionName="2.2" android:versionCode="2" >
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"></uses-permission>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"></uses-permission>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"></uses-permission>
@@ -16,6 +16,8 @@
         </activity>
         <activity android:name=".setup"  android:label="Settings/الاعدادات" android:configChanges="locale">
         </activity>
+        <activity android:name=".DownloadProgress"  android:label="Download/التحميل" android:configChanges="locale">
+        </activity>
     </application>
 <supports-screens
 android:smallScreens="true"
@@ -23,8 +25,7 @@ android:normalScreens="true"
 android:largeScreens="true"
 android:anyDensity="true"
 />
-
-<uses-sdk android:targetSdkVersion="9" android:minSdkVersion="9" android:maxSdkVersion="10"></uses-sdk>
+<uses-sdk android:targetSdkVersion="4" android:minSdkVersion="4" android:maxSdkVersion="10"></uses-sdk>
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-</manifest> 
+</manifest>
