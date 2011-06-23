@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hello">Hello World, QuranSteaming!</string>
-    <string name="app_name">حقيبة المسلم/Muslem Bag</string>
+    <string name="app_name">حقيبة المسلم/Muslim Bag</string>
 <string name="tvLang">Select Language</string>
 <string name="tvLang_ar">اختر اللغه</string>
 <string-array name="Category">
@@ -74,4 +74,8 @@
 <string name="Sorry_ar">نعتذر</string>
 <string name="noInternetConnection">Can\'t reach the server, No internet connection</string>
 <string name="noInternetConnection_ar">تعذر الوصول الى المصدر، لا يوجد اتصال بالانترنت</string>
+<string name="downloadText">Downloading selected Items</string>
+<string name="downloadText_ar">تحميل السور المختاره</string>
+<string name="downloadCompleted">Downloading Completed Successfully</string>
+<string name="downloadCompleted_ar">تم التحميل بنجاح</string>
 </resources>

@@ -1,12 +1,14 @@
 package com.android.QuranSteaming;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import android.app.Activity;
 import android.app.Dialog;
-import android.app.DownloadManager;
-import android.app.DownloadManager.Request;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -15,11 +17,11 @@ import android.database.Cursor;
 import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.Display;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -51,6 +53,7 @@ public class QuranSteaming extends Activity  {
 	public static String language ="";
 	public static MediaPlayer mp;
 	public static Context context;
+	
 	int screenWidth;
 	int screenHeight;
 	Spinner spnCategory;
@@ -86,7 +89,7 @@ public class QuranSteaming extends Activity  {
         selectedCount=0;
         
         dbaAdabter = new DBAdapter(getBaseContext());
-		//checking db existance
+        //checking db existance
 		try 
 		{
 			dbaAdabter.createDataBase();
@@ -527,14 +530,16 @@ public class QuranSteaming extends Activity  {
 	  }
 	public static void stopStreamingAudio(View v)
 	{
-		if ((mp != null)&&(mp.isPlaying()))
+		if ((mp != null))
 		{
-			mp.stop();
+			
 			v.findViewById(R.id.btnStopstream).setVisibility(View.INVISIBLE);
 			if(v.findViewById(R.id.btnDownload).getVisibility()==View.INVISIBLE)
 			{
 				v.setVisibility(View.INVISIBLE);
 			}
+			if(mp.isPlaying())
+				mp.stop();
 		}
 	}
 	public void onDestroy(Bundle savedInstanceState) {
@@ -764,6 +769,25 @@ public class QuranSteaming extends Activity  {
 		
 		if(isConnected(context))
 		{ 
+			if(!DownloadProgress.isInUse)
+			{
+				DownloadProgress.totalSize = 1;
+				try
+				{
+				Intent intent = new Intent(QuranSteaming.this,DownloadProgress.class);
+				startActivity(intent);
+				DownloadProgress.isInUse= true;
+				}
+				catch (Exception e) {
+					// TODO: handle exception
+					try {
+						throw e;
+					} catch (Exception e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+				}
+			} 
 			new Thread(){
 				@Override
 	            public void run() {
@@ -785,7 +809,7 @@ public class QuranSteaming extends Activity  {
 							}
 						}
 	            	}
-            	} catch(Exception e)
+            	}catch(Exception e)
             	{
             		return;
             	}
@@ -794,68 +818,59 @@ public class QuranSteaming extends Activity  {
 		}
 	}
 	public void DownloadFromUrl(String strURL, String fileName,String surahName) {  //this is the downloader method
-		Uri srcUri =Uri.parse(strURL);
 		File f = new File(fileName);
 		if(f.exists())
 			return;
-		Uri destUri = Uri.fromFile(f);
 		
-        DownloadManager d=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);;
+        /*DownloadManager d=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);;
         if(language.equalsIgnoreCase("EN"))
         	d.enqueue(new Request(srcUri).setAllowedNetworkTypes(Request.NETWORK_MOBILE|Request.NETWORK_WIFI)
         		.setAllowedOverRoaming(false).setTitle(context.getString(R.string.btnDownload_ar)+surahName).setDestinationUri(destUri));
         else
         	d.enqueue(new Request(srcUri).setAllowedNetworkTypes(Request.NETWORK_MOBILE|Request.NETWORK_WIFI)
             		.setAllowedOverRoaming(false).setTitle(context.getString(R.string.btnDownload_ar) +surahName).setDestinationUri(destUri));
-		/*setProgressBarIndeterminateVisibility(true);
+		*/
 
 		try {
 			//WebView wvWebView= (WebView) findViewById(R.id.wvWebView);
 			
 		    URL url = new URL( strURL); //you can write here any link
-            File file = new File(fileName);
 
             long startTime = System.currentTimeMillis();
-            Log.d("ImageManager", "download begining");
-            Log.d("ImageManager", "download url:" + url);
-            Log.d("ImageManager", "downloaded file name:" + fileName);
+            Log.d("Muslim Bag", "download begining");
+            Log.d("Muslim Bag", "download url:" + url);
+            Log.d("Muslim Bag", "downloaded file name:" + fileName);
             /* Open a connection to that URL. */
-            /*HttpURLConnection c = (HttpURLConnection) url.openConnection();
+            HttpURLConnection c = (HttpURLConnection) url.openConnection();
             c.setRequestMethod("GET");
             c.setDoOutput(true);
             c.connect();
-            int totalSize = c.getContentLength();
-            int downloadedSize = 0;
-
-            //this.requestWindowFeature(Window.FEATURE_PROGRESS);
-            
+            DownloadProgress.totalSize += c.getContentLength()-1;
             /*
              * Define InputStreams to read from the URLConnection.
              */
-            /*InputStream is = c.getInputStream();
-            FileOutputStream f = new FileOutputStream(file);
+            InputStream is = c.getInputStream();
+            FileOutputStream f1 = new FileOutputStream(f);
             /*
              * Read bytes to the Buffer until there is nothing more to read(-1).
              */
-            /*byte[] buffer = new byte[10000];
+            byte[] buffer = new byte[50000];
             int len1 = 0;
             while ( (len1 = is.read(buffer)) > 0 ) {
-                f.write(buffer,0, len1);
-                downloadedSize += buffer.length;
-                getWindow().setFeatureInt(Window.FEATURE_PROGRESS, (downloadedSize*1000/totalSize));
+                f1.write(buffer,0, len1);
+                DownloadProgress.totalDownloaded += buffer.length;
             }
 
-            f.close();
+            f1.close();
 
             /* Convert the Bytes read to a String. */
-            /*Log.d("ImageManager", "download ready in"
+            Log.d("Muslim Bag", "download ready in"
                             + ((System.currentTimeMillis() - startTime) / 1000)
                             + " sec");
 
         } catch (IOException e) {
-                Log.d("MP3Manager", "Error: " + e);
+                Log.d("Muslim Bag", "Error: " + e);
         }
-        setProgressBarIndeterminateVisibility(false);*/
 	}
 	public String getSurahURL(Long surahID)
 	{
