@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<color name="customColor">#b0b0ff</color>
+
+<!-- A theme that has a translucent background.  Here we explicitly specify
+         that this theme is to inherit from the system's translucent theme,
+         which sets up various attributes correctly. -->
+    <style name="Theme.Translucent" parent="android:style/Theme.Translucent">
+        <item name="android:windowBackground">@color/customColor</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorForeground">#aaa</item>
+    </style>
+</resources>
