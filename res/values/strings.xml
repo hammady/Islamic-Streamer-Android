@@ -78,4 +78,9 @@
 <string name="downloadText_ar">تحميل السور المختاره</string>
 <string name="downloadCompleted">Downloading Completed Successfully</string>
 <string name="downloadCompleted_ar">تم التحميل بنجاح</string>
+<string name="preparingDownload">Preparing Download</string>
+<string name="preparingDownload_ar">تجهيز التنزيلات</string>
+<string name="preparingDownloadDetails">Preparing for download now</string>
+<string name="preparingDownloadDetails_ar">يتم تجهيز التنزيلات الان</string>
+<string name="Quit">Exit</string>
 </resources>

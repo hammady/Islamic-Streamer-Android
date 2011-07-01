@@ -1,6 +1,7 @@
 package com.android.QuranSteaming;
 
 import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.CompoundButton.OnCheckedChangeListener;
@@ -9,6 +10,9 @@ import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 import java.util.ArrayList;
+
+import com.android.QuranSteaming.QuranSteaming.playMode;
+
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -84,7 +88,6 @@ public ListAdapter(Context context, int textViewResourceId,
         cb.setOnCheckedChangeListener(new OnCheckedChangeListener() {
 		@Override
 		public void onCheckedChanged(CompoundButton arg0, boolean isChecked) {
-			// TODO Auto-generated method stub
 			View v = (View)arg0.getParent();
 			TextView tv=(TextView) v.findViewById(R.id.tvSurahId);
 			TextView tvItemPosition=(TextView) v.findViewById(R.id.tvItemPosition);
@@ -126,14 +129,22 @@ public ListAdapter(Context context, int textViewResourceId,
 			View v2=((View)((View)((View)((View)((View)((View)v.getParent()).getParent()).getParent()).getParent()).getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout));
 			if(QuranSteaming.selectedCount==0)
 			{
-				if(v2.findViewById(R.id.btnStopstream).getVisibility()!=View.VISIBLE)
+				if((v2.findViewById(R.id.btnStopStream).getVisibility()!=View.VISIBLE)&&(QuranSteaming.isPaused!=true))
+				{
 					v2.setVisibility(View.INVISIBLE);
+					v2.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+				}
+				if((QuranSteaming.mp!=null)&&(QuranSteaming.mp.isPlaying()))
+					v2.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
 				v2.findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
+				v2.findViewById(R.id.btnAddToPlaylist).setVisibility(View.INVISIBLE);
 			}
 			else
 			{
 				v2.setVisibility(View.VISIBLE);
 				v2.findViewById(R.id.btnDownload).setVisibility(View.VISIBLE);
+				v2.findViewById(R.id.btnAddToPlaylist).setVisibility(View.VISIBLE);
+				v2.findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
 			}
 			if(!isManuallyChecked)
 				QuranSteaming.dbaAdabter.getData(str, null, null, QuranSteaming.update);
@@ -144,7 +155,6 @@ public ListAdapter(Context context, int textViewResourceId,
         	
 			@Override
 			public void onClick(View v) {
-				// TODO Auto-generated method stub
 				ImageView ivImg =(ImageView)v;
 				ivImg.setVisibility(View.INVISIBLE);
 				//QuranSteaming.stopStreamingAudio();
@@ -154,12 +164,12 @@ public ListAdapter(Context context, int textViewResourceId,
         	
 			@Override
 			public void onClick(View v) {
-				// TODO Auto-generated method stub
+				QuranSteaming.isRunning=false;
 				View nv=(View) v.getParent();
 				//hideAllPlayImage((ListView)nv.getParent().getParent());
 				final ImageView ivImg =(ImageView)((View)nv.getParent()).findViewById(R.id.ivImg);
 				View v2 = ((View)((View)((View)((View)((View)((View)v.getParent()).getParent()).getParent()).getParent()).getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout)); 
-				if(v2.findViewById(R.id.btnStopstream).getVisibility()==View.VISIBLE)
+				if(v2.findViewById(R.id.btnStopStream).getVisibility()==View.VISIBLE)
 				{
 					ivImg.setVisibility(View.INVISIBLE);
 					QuranSteaming.stopStreamingAudio(v2);
@@ -169,7 +179,8 @@ public ListAdapter(Context context, int textViewResourceId,
 				//v2.findViewById(R.id.btnStopstream).setVisibility(View.VISIBLE);
 				TextView tvSurahId =(TextView)((View) v.getParent()).findViewById(R.id.tvSurahId);
 				QuranSteaming.selectedSurah = Long.parseLong(tvSurahId.getText().toString());
-				QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah); 
+				QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah);
+				QuranSteaming.setPlayingMode(playMode.singleItem);
 				Listen(ivImg,v2);
 			}
 		});
@@ -226,7 +237,6 @@ public ListAdapter(Context context, int textViewResourceId,
 
 	@Override
 	public void onClick(View v) {
-		// TODO Auto-generated method stub
 		View nv=(View) v.getParent().getParent();
 		hideAllPlayImage((ListView)nv);
 		final ImageView ivImg =(ImageView)((View) v.getParent()).findViewById(R.id.ivImg);
@@ -244,28 +254,14 @@ public ListAdapter(Context context, int textViewResourceId,
 		QuranSteaming.selectedSurah = Long.parseLong(tvSurahId.getText().toString());
 		QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah); 
 		Listen(ivImg,v2);
-		new Thread() {
-            @Override
-            public void run() {
-            	try { 
-            		while(!QuranSteaming.Mediaready)
-            		{
-            			sleep(1000);
-            		}
-            		//ivImg.setVisibility(View.VISIBLE);
-            	} catch (Exception e) {
-            		//Toast.makeText(this,"15"+e.getMessage(),Toast.LENGTH_LONG).show();            		
-            	}        
-            }
-        }.start();
 	}
 	private void hideAllPlayImage(ListView lv)
 	{
-		for(int x=0;x<lv.getChildCount();x++)
+		for(int x=0;x<lv.getCount();x++)
 		{
-			View v = lv.getChildAt(x);
-			ImageView ivImg= (ImageView) v.findViewById(R.id.ivImg);
-			ivImg.setVisibility(View.INVISIBLE);
+			ProjectObject po = (ProjectObject) lv.getItemAtPosition(x);
+			po.isPlaying = false;
 		}
+		((BaseAdapter)lv.getAdapter()).notifyDataSetChanged();
 	} 
 }

@@ -8,10 +8,11 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import android.app.Activity;
-import android.app.Dialog;
 import android.app.ProgressDialog;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.media.MediaPlayer;
@@ -20,19 +21,19 @@ import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Message;
+import android.telephony.PhoneStateListener;
+import android.telephony.TelephonyManager;
 import android.util.Log;
-import android.view.Display;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.widget.BaseAdapter;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -42,8 +43,28 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.AdapterView.OnItemSelectedListener;
 
-
 public class QuranSteaming extends Activity  {
+	static enum playMode{
+		playlist,
+		singleItem,
+		empty
+	}
+	private static class HandlerAction{
+		final int HideMenuBar = 10;
+		public int getHideMenuBar() {
+			return HideMenuBar;
+		}
+		public int getDismissDialog() {
+			return dismissDialog;
+		}
+		final int dismissDialog = 0;
+		final int notifyListViewAdapter = 1;
+		final int showSorryMessage = 2;
+		final int showWaitMessage= 3;
+	};
+	static HandlerAction myHandlerAction= new HandlerAction();
+	public static boolean isRunning = false;
+	PlaylistManager plManger = new PlaylistManager();
 	public static DBAdapter dbaAdabter;
 	String[] tableColumns;
 	public static String select ="select";
@@ -53,14 +74,13 @@ public class QuranSteaming extends Activity  {
 	public static String language ="";
 	public static MediaPlayer mp;
 	public static Context context;
-	
-	int screenWidth;
-	int screenHeight;
+	public static playMode playingMode = playMode.empty;
+	public static boolean isPaused = false;
+	static PhoneStateListener listener;
 	Spinner spnCategory;
 	Spinner spnShaikh;
 	static Integer selectedCount = 0;
 	static ProgressDialog progDailog;
-	static Dialog dailog;
 	static boolean Mediaready= false;
 	Long selectedCategory;
 	static Long  selectedShaikh;
@@ -68,18 +88,72 @@ public class QuranSteaming extends Activity  {
 	static String selectedShaikhURL;
 	static Long selectedSurah;
 	static String sourceFile;
-	Button streamButton;
-	Button btnDownload;
-	ListView lvSurah;
-	Button stopStreamButton;
-	ImageButton playButton;
+	static View alaMenuLayout;
+	static String selectedSurahURL;
+	static boolean isPausedDueToCall = false;
+	private Updater playlistUpdater=new Updater();
+	/**
+	 * buttons definition	
+	 */
+	ImageButton btnStartStream;
+	ImageButton btnDownload;
+	ImageButton stopStreamButton;
+	ImageButton btnMoveToNext;
+	ImageButton btnMoveToPrev;
+	ImageButton btnAddToPlaylist;
+	/**
+	 * end buttons definition
+	 */
+	static ListView lvSurah;	
 	ArrayList<ProjectObject> Surahs=null;
 	ListAdapter arrayAdapter;
-	static String selectedSurahURL;
-	private static Handler handler = new Handler() {
+	private PlayingService s;
+	private static boolean waitTillPlay=false;
+	
+	//api =  .Stub.asInterface(service);
+
+	public static Handler handler = new Handler() {
 		@Override
 		public void handleMessage(Message msg) {
-
+			final Resources r=context.getResources();
+			if(msg.what==myHandlerAction.getHideMenuBar())
+			{
+				if(selectedCount>0)
+				{
+					alaMenuLayout.findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
+					alaMenuLayout.findViewById(R.id.btnStopStream).setVisibility(View.INVISIBLE);
+				}
+				else
+				{
+					alaMenuLayout.setVisibility(View.INVISIBLE);
+					alaMenuLayout.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+					alaMenuLayout.findViewById(R.id.btnStopStream).setVisibility(View.INVISIBLE);
+					alaMenuLayout.findViewById(R.id.btnPlayNext).setVisibility(View.INVISIBLE);
+					alaMenuLayout.findViewById(R.id.btnPlayPrevious).setVisibility(View.INVISIBLE);
+				}
+			}
+			else if (msg.what==myHandlerAction.getDismissDialog()) 
+			{
+				progDailog.dismiss();
+			}
+			else if (msg.what==myHandlerAction.notifyListViewAdapter)
+			{
+				((BaseAdapter)lvSurah.getAdapter()).notifyDataSetChanged();
+			}
+			else if(msg.what==myHandlerAction.showSorryMessage)
+			{
+				if(language.equalsIgnoreCase("EN"))
+	        		progDailog = ProgressDialog.show(context,r.getString(R.string.Sorry), r.getString(R.string.noInternetConnection),true);
+	        	else
+	        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.Sorry_ar)), ArabicUtilities.reshape(r.getString(R.string.noInternetConnection_ar)),true);
+			}
+			else if(msg.what==myHandlerAction.showWaitMessage)
+			{
+				if(language.equalsIgnoreCase("EN"))
+	        		progDailog = ProgressDialog.show(context,r.getString(R.string.txtStreamingText), r.getString(R.string.txtStreamingWaitText),true);
+	        	else
+	        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.txtStreamingText_ar)), ArabicUtilities.reshape(r.getString(R.string.txtStreamingWaitText_ar)),true);
+			}
 		}
 		};
     /** Called when the activity is first created. */
@@ -87,7 +161,15 @@ public class QuranSteaming extends Activity  {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         selectedCount=0;
+        PlayingService.setMainActivity(this);
         
+        //creating an intent for the service
+        //final Intent playingService = new Intent(this, PlayingService.class);
+        Intent intent = new Intent(this,PlayingService.class);
+        startService(intent); 
+        //bindService(intent, mConnection, 0);
+		//doBindService();
+		showHideMenu();
         dbaAdabter = new DBAdapter(getBaseContext());
         //checking db existance
 		try 
@@ -112,41 +194,38 @@ public class QuranSteaming extends Activity  {
 		Integer ind=cr1.getColumnIndex("lang");
 		language = cr1.getString(ind);
 		static_path = Environment.getExternalStorageDirectory().getAbsolutePath()+"/QuranStreaming/";
-		getWindow().requestFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
 		
 		try
 		{
-			if (language.equalsIgnoreCase("EN"))
+			/*if (language.equalsIgnoreCase("EN"))
 				setContentView(R.layout.main);
-			else 
+			else*/ 
 				setContentView(R.layout.main_ar);
 		}
 		catch (Exception e) {
-			// TODO: handle exception
 			Toast.makeText(this,"6"+e.getMessage(),Toast.LENGTH_LONG).show();
 		}
 		ind=cr1.getColumnIndex("server_name");
 		static_url= cr1.getString(ind);
 		cr1.close();
 		dbaAdabter.close();
-		getScreenSize();
-		
+				
 		if((language.length()==0) || (language.equals( null)))
 		{
 			showSetupForm();
 		}
 		context = this;
-		//textStreamed = (TextView)findViewById(R.id.tvtextStreamed);
+		alaMenuLayout = (View)findViewById(R.id.alaMenuLayout);
 		lvSurah = (ListView) findViewById(R.id.lvSurah);
 		lvSurah.setOnItemClickListener(new OnItemClickListener() {
 
 			@Override
 			public void onItemClick(AdapterView<?> arg0, View arg1, int arg2,
 					long arg3) {
-				// TODO Auto-generated method stub
+				isRunning=false;
 				final ImageView ivImg =(ImageView)arg0.findViewById(R.id.ivImg);
 				View menuView = ((View)((View)((View)((View)((View)arg0.getParent()).getParent()).getParent()).getParent()).getParent()).findViewById(R.id.alaMenuLayout);
-				if(menuView.findViewById(R.id.btnStopstream).getVisibility()==View.VISIBLE)
+				if(menuView.findViewById(R.id.btnStopStream).getVisibility()==View.VISIBLE)
 				{
 					ivImg.setVisibility(View.INVISIBLE);
 					QuranSteaming.stopStreamingAudio(arg0);
@@ -156,92 +235,71 @@ public class QuranSteaming extends Activity  {
 				//v2.findViewById(R.id.btnStopstream).setVisibility(View.VISIBLE);
 				TextView tvSurahId =(TextView)arg0.findViewById(R.id.tvSurahId);
 				QuranSteaming.selectedSurah = Long.parseLong(tvSurahId.getText().toString());
-				QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah); 
+				QuranSteaming.selectedSurahURL=getSurahURL(QuranSteaming.selectedSurah);
+				playingMode= playMode.singleItem;
 				Listen(ivImg,arg0);
 			}
 		});
+		// buttons on click listeners
+		buttonsSetOnClickLister();
+		//spinner on item selected listener
+		spinnerSetOnitemSelectLister();
 		
-		stopStreamButton = (Button) findViewById(R.id.btnStopstream);
-		
-		stopStreamButton.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View view) {
-				View v = (View)view.getParent(); 
-				stopStreamingAudio(v);
-        }});
-		//TableRow tr = (TableRow)findViewById(R.id.tbLowerButton);
-		//tr.setVisibility(View.VISIBLE); 
-		spnShaikh = (Spinner) findViewById(R.id.spnShaikh);
-		//spnShaikh.setLayoutParams(new LayoutParams((int) (screenWidth*.6), LayoutParams.WRAP_CONTENT));
-		int widthMeasureSpec = View.MeasureSpec.makeMeasureSpec(50,
-				View.MeasureSpec.AT_MOST);
-				        int heightMeasureSpec = View.MeasureSpec.makeMeasureSpec(0,
-				View.MeasureSpec.UNSPECIFIED);
-		spnShaikh.measure(widthMeasureSpec, heightMeasureSpec);
-		btnDownload = (Button) findViewById(R.id.btnDownload);
-		btnDownload.setOnClickListener(new View.OnClickListener() {
-			
-			@Override
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
-				download(lvSurah.getAdapter());
-			}
-		});
-		spnCategory = (Spinner)findViewById(R.id.spnCategory);
-		//spnCategory.setLayoutParams(new LayoutParams((int) (screenWidth*.4), LayoutParams.WRAP_CONTENT));
-		spnCategory.setOnItemSelectedListener(new OnItemSelectedListener() {
-			@Override
-			public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
-					long arg3) {
-				// TODO Auto-generated method stub
-				long newSelectedValue=arg3;
-				
-				if(selectedCategory!=newSelectedValue)
-				{
-					if(((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopstream).getVisibility()==View.INVISIBLE)
-						((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).setVisibility(View.INVISIBLE);
-					((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
-					fillShaikh(newSelectedValue, "1");
-					selectedCategory = newSelectedValue;
-				}			
-			}
-
-			@Override
-			public void onNothingSelected(AdapterView<?> arg0) {
-				// TODO Auto-generated method stub
-				
-			}
-		
-		});
-		
-		spnShaikh.setOnItemSelectedListener(new OnItemSelectedListener() {
-			@Override
-			public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
-					long arg3) {
-				// TODO Auto-generated method stub
-				long newSelectedValue=arg3;
-				
-				if(selectedShaikh!=newSelectedValue)
-				{
-					selectedCount  = 0;
-					if(((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopstream).getVisibility()==View.INVISIBLE)
-						((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).setVisibility(View.INVISIBLE);
-					((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
-					selectedShaikh = newSelectedValue;
-					selectedShaikhURL = getShaikhURL(selectedShaikh);
-					fillSurah(selectedShaikh);
-				}			
-			}
-
-			@Override
-			public void onNothingSelected(AdapterView<?> arg0) {
-				// TODO Auto-generated method stub
-				
-			}
-			
-			
-		
-		});				
 		fillCategoy(); 
+		addTelephoneListener();
+		isMediaPlayingThread();
+    }
+    private void addTelephoneListener()
+    {
+		TelephonyManager tm = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
+		// Create a new PhoneStateListener
+	    listener = new PhoneStateListener() {
+	      @Override
+	      public void onCallStateChanged(int state, String incomingNumber) {
+	        try{
+	        	switch (state) {
+		        case TelephonyManager.CALL_STATE_IDLE:
+		        	
+		        	if(isPausedDueToCall)
+		        	{
+		        		isPausedDueToCall = false;
+		        		if(playingMode == playMode.singleItem)
+		        		{
+		        			mp.start();
+		        			findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+		        			findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+		        			findViewById(R.id.alaMenuLayout).setVisibility(View.VISIBLE);
+		        		}
+		        		else
+		        		{
+		        			if(s!=null)
+		        				s.continuePlaying();
+		        		}
+		        	}
+		          break;
+		        case TelephonyManager.CALL_STATE_OFFHOOK:
+		        	if(mp.isPlaying())
+		        	{
+			        	isPausedDueToCall = true;
+			        	stopStreamingAudio(findViewById(R.id.alaMenuLayout));
+		        	}
+		          break;
+		        case TelephonyManager.CALL_STATE_RINGING:
+		        	if(mp.isPlaying())
+		        	{
+			        	isPausedDueToCall = true;
+			        	stopStreamingAudio(findViewById(R.id.alaMenuLayout));
+		        	}
+		          break;
+		        }
+	        }
+	        catch(Exception e)
+	        {
+	        	e.printStackTrace();
+	        }
+	      }
+	    };
+		tm.listen(listener, PhoneStateListener.LISTEN_CALL_STATE);
     }
     private void Listen(ImageView v,View v2)
     {
@@ -269,6 +327,11 @@ public class QuranSteaming extends Activity  {
 				// Launch Preference activity
 				Intent i = new Intent(QuranSteaming.this, setup.class);
 				startActivity(i);
+				break;
+			case R.id.iQuit:
+				quitApplication();
+				break;
+			default:
 				break;
 		}
 		return true;
@@ -431,7 +494,7 @@ public class QuranSteaming extends Activity  {
 		return strShaikhURL;
 	}
 	public static  void startStreamingAudio(ImageView v,String surahURL,View v2) {
-		
+		waitTillPlay = true;
     	Mediaready=false;
     	final Resources r=context.getResources();
         boolean isConn = isConnected(context);
@@ -441,7 +504,6 @@ public class QuranSteaming extends Activity  {
         {
         	sourceFile = static_path+selectedShaikhURL+surahURL;
         }
-        //if()
         if(isConn||surahPath.exists())
     	{
     		if(language.equalsIgnoreCase("EN"))
@@ -449,7 +511,15 @@ public class QuranSteaming extends Activity  {
         	else
         		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.txtStreamingText_ar)), ArabicUtilities.reshape(r.getString(R.string.txtStreamingWaitText_ar)),true);
     		v2.setVisibility(View.VISIBLE);
-    		v2.findViewById(R.id.btnStopstream).setVisibility(View.VISIBLE);
+    		v2.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+    		if (selectedCount==0)
+    			v2.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+    		if(playingMode==playMode.playlist)
+    		{
+    			v2.findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
+        		v2.findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
+    		}
+    		
     	}
     	else
     	{
@@ -468,11 +538,10 @@ public class QuranSteaming extends Activity  {
             		try {
 						sleep(4000);
 					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-            		handler.sendEmptyMessage(0);
-            		progDailog.dismiss();
+            		handler.sendEmptyMessage(myHandlerAction.getDismissDialog());
+            		waitTillPlay= false;
             		return;
             	}
             	try { 
@@ -490,21 +559,18 @@ public class QuranSteaming extends Activity  {
             		mp.prepare();
             		mp.start();
             		Mediaready = true;
-            		handler.sendEmptyMessage(0);
-            		progDailog.dismiss();
-            		//pb1.setVisibility(View.INVISIBLE);
+            		handler.sendEmptyMessage(myHandlerAction.getDismissDialog());
+            		waitTillPlay= false;
             	} catch (IOException e) {
-            		handler.sendEmptyMessage(0);
-            		progDailog.dismiss();
-            		        		
+            		handler.sendEmptyMessage(myHandlerAction.getDismissDialog());
+            		waitTillPlay= false;
             	} catch (Exception e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
-					handler.sendEmptyMessage(0);
-            		progDailog.dismiss();
+					handler.sendEmptyMessage(myHandlerAction.getDismissDialog());
+					waitTillPlay= false;
 				}        
             }
-        }.start();    	
+        }.start();
     }
 	/**
 	   * Checks if the phone has network connection.
@@ -533,13 +599,13 @@ public class QuranSteaming extends Activity  {
 		if ((mp != null))
 		{
 			
-			v.findViewById(R.id.btnStopstream).setVisibility(View.INVISIBLE);
-			if(v.findViewById(R.id.btnDownload).getVisibility()==View.INVISIBLE)
-			{
-				v.setVisibility(View.INVISIBLE);
-			}
+			v.findViewById(R.id.btnStopStream).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
 			if(mp.isPlaying())
-				mp.stop();
+			{
+				mp.pause();
+				isPaused = true;
+			}
 		}
 	}
 	public void onDestroy(Bundle savedInstanceState) {
@@ -632,41 +698,25 @@ public class QuranSteaming extends Activity  {
 				colName ="surah_name_a";
 	    	int nameInd =cr.getColumnIndex(colName);
 	    	int idInd =cr.getColumnIndex("_id");
-	    	int idIsChecked =cr.getColumnIndex("is_checked");
+	    	//int idIsChecked =cr.getColumnIndex("is_checked");
 	    	int idIsPlaying =cr.getColumnIndex("is_playing");
-	    	cr.moveToFirst();
-	    	ProjectObject o;   	
-	    	
-	    	while(!cr.isLast())
+	    	if(cr.moveToFirst())
 	    	{
-	    		o=new ProjectObject();
-	    		o.surahName= ArabicUtilities.reshape(cr.getString(nameInd));
-		    	o.surahId= Integer.parseInt(cr.getString(idInd));
-		    	if((cr.getString(idIsPlaying) != null)&&(cr.getString(idIsPlaying).length() != 0))
-		    		o.isPlaying = true;
-		    	//if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
-		    		o.isChecked = false;
-	    		Surahs.add(o);	    		
-	    		cr.moveToNext();
+		    	do
+		    	{
+		    		ProjectObject o=new ProjectObject();
+		    		o.surahName= ArabicUtilities.reshape(cr.getString(nameInd));
+			    	o.surahId= Integer.parseInt(cr.getString(idInd));
+			    	if((cr.getString(idIsPlaying) != null)&&(cr.getString(idIsPlaying).length() != 0))
+			    		o.isPlaying = true;
+			    	//if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
+			    		o.isChecked = false;
+		    		Surahs.add(o);
+		    	}while(cr.moveToNext());
 	    	}
-	    	o=new ProjectObject();
-	    	if((cr.getString(idIsPlaying) != null)&&(cr.getString(idIsPlaying).length() != 0))
-	    		o.isPlaying = true;
-	    	if((cr.getString(idIsChecked) != null)&&(cr.getString(idIsChecked).length() != 0))
-	    		o.isChecked = true;
-	    	o.surahName= ArabicUtilities.reshape(cr.getString(nameInd));
-	    	o.surahId= Integer.parseInt(cr.getString(idInd));;
-	    	Surahs.add(o);
 	    	arrayAdapter.notifyDataSetChanged();
 	    }
 	    dbaAdabter.close();
-	}
-	private void getScreenSize()
-	{
-		WindowManager window = (WindowManager) getSystemService(Context.WINDOW_SERVICE); 
-	    Display display = window.getDefaultDisplay();
-	    screenWidth = display.getWidth();
-	    screenHeight = display.getHeight();
 	}
 	public static String getShaikhSurahID(String ShaikhId,String SurahId)
 	{
@@ -711,7 +761,6 @@ public class QuranSteaming extends Activity  {
 		
 		return ShaikhSurahId;
 	}
-	
 	private boolean DirectoryNotExists(Context con, String path) throws Exception
 	{
 		  File directory = new File(path);
@@ -757,65 +806,125 @@ public class QuranSteaming extends Activity  {
             		sleep(4000);
             	}
             	catch (Exception e) {
-					// TODO: handle exception
+            		e.printStackTrace();
 				}
-            	handler.sendEmptyMessage(0);
-        		progDailog.dismiss();
+            	handler.sendEmptyMessage(myHandlerAction.getDismissDialog());
         		return;
 			};
     		}.start();
     		return;
     	}
-		
+		DownloadProgress.totalSize = 0;
 		if(isConnected(context))
 		{ 
-			if(!DownloadProgress.isInUse)
-			{
-				DownloadProgress.totalSize = 1;
-				try
-				{
-				Intent intent = new Intent(QuranSteaming.this,DownloadProgress.class);
-				startActivity(intent);
-				DownloadProgress.isInUse= true;
-				}
-				catch (Exception e) {
-					// TODO: handle exception
-					try {
-						throw e;
-					} catch (Exception e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-				}
-			} 
+			if(language.equalsIgnoreCase("EN"))
+        		progDailog = ProgressDialog.show(context,getApplication().getString(R.string.preparingDownload), getApplication().getString(R.string.preparingDownloadDetails),true);
+        	else
+        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(getApplication().getString(R.string.preparingDownload_ar)), ArabicUtilities.reshape(getApplication().getString(R.string.preparingDownloadDetails_ar)),true);
 			new Thread(){
 				@Override
 	            public void run() {
-		       	ProjectObject po;
-            	try{
-	            	for(int i=0;i<listAdapter.getCount();i++)
-	            	{
-						po=(ProjectObject) listAdapter.getItem(i);
-						QuranSteaming.selectedSurah = (long) po.surahId;
-						selectedSurahURL=getSurahURL(selectedSurah);
-						
-						if(po.isChecked)
-						{
-							try {
-								DownloadFromUrl(static_url+selectedShaikhURL+selectedSurahURL,sanitizePath(context, "/QuranStreaming/"+selectedShaikhURL+"/"+selectedSurahURL),po.surahName);
-							} catch (Exception e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
+					try {
+						for(int i=0;i<listAdapter.getCount();i++)
+			        	{
+							final ProjectObject po=(ProjectObject) listAdapter.getItem(i);
+							QuranSteaming.selectedSurah = (long) po.surahId;
+							selectedSurahURL=getSurahURL(selectedSurah);
+							if(po.isChecked)
+							{
+								try {
+									DownloadProgress.totalSize += getFileSize(static_url+selectedShaikhURL+selectedSurahURL,sanitizePath(context, "/QuranStreaming/"+selectedShaikhURL+"/"+selectedSurahURL));
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
 							}
+							if(DownloadProgress.downloaded==null) 
+								DownloadProgress.downloaded= new ArrayList<Integer>();
+			        	}
+						handler.sendEmptyMessage(myHandlerAction.dismissDialog);
+						if(DownloadProgress.totalSize!=0)
+						{
+				    		if(!DownloadProgress.isInUse)
+							{
+								try
+								{
+									Intent intent = new Intent(QuranSteaming.this,DownloadProgress.class);
+									DownloadProgress.isInUse= true;
+									startActivity(intent);
+								}
+								catch (Exception e) {
+									e.printStackTrace();
+								}
+							} 
+				    		for(int i=0;i<listAdapter.getCount();i++)
+				        	{
+								final ProjectObject po=(ProjectObject) listAdapter.getItem(i);
+								QuranSteaming.selectedSurah = (long) po.surahId;
+								selectedSurahURL=getSurahURL(selectedSurah);
+								
+								if(po.isChecked)
+								{
+									try {
+										new Thread(){
+											@Override
+								            public void run() {
+												try {
+													DownloadFromUrl(static_url+selectedShaikhURL+selectedSurahURL,static_path+selectedShaikhURL+selectedSurahURL,po.surahName);
+												} catch (Exception e) {
+													e.printStackTrace();
+												}
+											};
+										}.start();
+									}
+									catch (Exception e) {
+										e.printStackTrace();
+									}
+									po.isChecked = false;
+								}
+				        	}
 						}
-	            	}
-            	}catch(Exception e)
-            	{
-            		return;
-            	}
+						else
+						{
+							for(int i=0;i<listAdapter.getCount();i++)
+				        	{
+								final ProjectObject po=(ProjectObject) listAdapter.getItem(i);
+								if(po.isChecked)
+								{
+									po.isChecked = false;
+								}
+				        	}
+						}
+			    		handler.sendEmptyMessage(myHandlerAction.notifyListViewAdapter);
+			    		selectedCount=0;
+			    		((View)((View)lvSurah.getParent()).getParent().getParent().getParent().getParent()).findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
+			    		((View)((View)lvSurah.getParent()).getParent().getParent().getParent().getParent()).findViewById(R.id.btnAddToPlaylist).setVisibility(View.INVISIBLE);
+			    		if(((View)((View)lvSurah.getParent()).getParent().getParent().getParent().getParent()).findViewById(R.id.btnStopStream).getVisibility()==View.INVISIBLE)
+			    		{
+			    			((View)((View)lvSurah.getParent()).getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).setVisibility(View.INVISIBLE);
+			    		}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
 				};
 			}.start();
 		}
+	}
+	private int getFileSize(String strURL,String filepath)
+	{
+		int size=0;
+		File f = new File(filepath);
+		if(f.exists())
+			return 0;
+		try {	
+		    URL url = new URL( strURL); //you can write here any link
+            /* Open a connection to that URL. */
+            HttpURLConnection c = (HttpURLConnection) url.openConnection();
+            size = c.getContentLength();
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return size;
 	}
 	public void DownloadFromUrl(String strURL, String fileName,String surahName) {  //this is the downloader method
 		File f = new File(fileName);
@@ -845,7 +954,6 @@ public class QuranSteaming extends Activity  {
             c.setRequestMethod("GET");
             c.setDoOutput(true);
             c.connect();
-            DownloadProgress.totalSize += c.getContentLength()-1;
             /*
              * Define InputStreams to read from the URLConnection.
              */
@@ -858,7 +966,7 @@ public class QuranSteaming extends Activity  {
             int len1 = 0;
             while ( (len1 = is.read(buffer)) > 0 ) {
                 f1.write(buffer,0, len1);
-                DownloadProgress.totalDownloaded += buffer.length;
+                DownloadProgress.downloaded.add(len1);
             }
 
             f1.close();
@@ -906,4 +1014,283 @@ public class QuranSteaming extends Activity  {
 	    dbaAdabter.close();
 		return strSurahURL;
 	}
+	private void onPlayClick(View v)
+	{
+		if((selectedCount<1)&&(playingMode==playMode.singleItem))
+		{
+			playingMode= playMode.singleItem;
+			mp.start();
+			v.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnPlayNext).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+			return;
+		}
+		else if(selectedCount==1)
+		{
+			playingMode=playMode.singleItem;
+			v.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+			v.findViewById(R.id.btnPlayNext).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.INVISIBLE);
+		}
+		else
+		{
+			playingMode=playMode.playlist;
+			v.findViewById(R.id.btnStartStream).setVisibility(View.INVISIBLE);
+			v.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+			v.findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
+			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
+		}
+		isRunning = true;
+		
+		//playlistUpdater.start();
+		startService();
+	}
+	private void onPauseClick(View v)
+	{
+		//stopService(new Intent(this,PlayingService.class));
+		stopStreamingAudio((View) v.getParent());
+		isRunning= false;
+	}
+	private void moveToNext(View view)
+	{
+		if(s!=null)
+			s.moveToNext();
+	}
+	private void moveToPrev(View view)
+	{
+		if(s!=null)
+			s.moveToPrev();
+	}
+	private void spinnerSetOnitemSelectLister()
+	{
+		spnCategory = (Spinner)findViewById(R.id.spnCategory);
+		spnCategory.setOnItemSelectedListener(new OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
+					long arg3) {
+				long newSelectedValue=arg3;
+				
+				if(selectedCategory!=newSelectedValue)
+				{
+					if(((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopStream).getVisibility()==View.INVISIBLE)
+						((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).setVisibility(View.INVISIBLE);
+					((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
+					fillShaikh(newSelectedValue, "1");
+					selectedCategory = newSelectedValue;
+				}			
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> arg0) {
+				
+			}
+		
+		});
+		spnShaikh = (Spinner) findViewById(R.id.spnShaikh);
+		spnShaikh.setOnItemSelectedListener(new OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
+					long arg3) {
+				long newSelectedValue=arg3;
+				
+				if(selectedShaikh!=newSelectedValue)
+				{
+					selectedCount  = 0;
+					if(((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopStream).getVisibility()==View.INVISIBLE)
+						((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).setVisibility(View.INVISIBLE);
+					((View)arg1.getParent().getParent().getParent().getParent().getParent()).findViewById(R.id.alaMenuLayout).findViewById(R.id.btnDownload).setVisibility(View.INVISIBLE);
+					selectedShaikh = newSelectedValue;
+					selectedShaikhURL = getShaikhURL(selectedShaikh);
+					fillSurah(selectedShaikh);
+				}			
+			}
+
+			@Override
+			public void onNothingSelected(AdapterView<?> arg0) {
+				
+			}
+			
+			
+		
+		});
+	}
+	private void buttonsSetOnClickLister()
+	{
+		btnStartStream = (ImageButton) findViewById(R.id.btnStartStream);
+		btnStartStream.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				onPlayClick((View) view.getParent());
+			}});
+		
+		btnMoveToNext = (ImageButton) findViewById(R.id.btnPlayNext);
+		btnMoveToNext.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				moveToNext(view);
+			}});
+		
+		btnMoveToPrev = (ImageButton) findViewById(R.id.btnPlayPrevious);
+		btnMoveToPrev.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				moveToPrev(view);
+			}});
+		
+		stopStreamButton = (ImageButton) findViewById(R.id.btnStopStream);
+		stopStreamButton.setOnClickListener(new View.OnClickListener() {
+			public void onClick(View view) {
+				View v = (View)view.getParent(); 
+				stopStreamingAudio(v);
+				onPauseClick(view);
+	       }});
+		
+		btnDownload = (ImageButton) findViewById(R.id.btnDownload);
+		btnDownload.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				download(lvSurah.getAdapter());
+			}});
+		
+		btnAddToPlaylist = (ImageButton) findViewById(R.id.btnAddToPlaylist);
+		btnAddToPlaylist.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				//download(lvSurah.getAdapter());
+			}});
+	}
+	private void showHideMenu()
+	{
+		if((s!=null)&&(s.getIsPlaying()))
+		{
+			findViewById(R.id.alaMenuLayout).setVisibility(View.VISIBLE);
+			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
+			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
+			//findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
+			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);			
+		}
+	}
+	@Override
+	protected void onDestroy() {
+	  super.onDestroy();
+	 
+	  try {
+	    //api.removeListener(collectorListener);
+	    //unbindService(serviceConnection);
+	  } catch (Throwable t) {
+	    // catch any issues, typical for destroy routines
+	    // even if we failed to destroy something, we need to continue destroying
+	    
+	  }
+	 
+	  
+	}
+	private ServiceConnection mConnection = new ServiceConnection() {
+
+		public void onServiceConnected(ComponentName className, IBinder binder) {
+			s = ((PlayingService.MyBinder) binder).getService();
+			Toast.makeText(QuranSteaming.this, "Connected",
+					Toast.LENGTH_SHORT).show();
+		}
+
+		public void onServiceDisconnected(ComponentName className) {
+			s = null;
+		}
+	};
+	void doBindService() {
+		bindService(new Intent(this, PlayingService.class), mConnection,
+				Context.BIND_AUTO_CREATE);
+	}
+	private void quitApplication()
+	{
+		finish();
+	}
+	public playMode getPlayingMode() {
+		return playingMode;
+	}
+	public static void setPlayingMode(playMode playingMode) {
+		QuranSteaming.playingMode = playingMode;
+	}
+	private void isMediaPlayingThread()
+	{
+		new Thread(){
+			@Override
+            public void run() {
+        	try{
+        		while(true)
+        		{
+        			sleep(1000);
+        			if((mp!=null)&&(!mp.isPlaying())&&(alaMenuLayout.getVisibility()==View.VISIBLE))
+        			{
+        				sleep(6000);
+        				if((!waitTillPlay)&&(!mp.isPlaying())&&(playingMode!=playMode.playlist))
+        				{
+        					handler.sendEmptyMessage(myHandlerAction.getHideMenuBar());
+        				}
+        			}
+        		}
+        	}
+        	catch (Exception e) {
+        		e.printStackTrace();
+			}
+		};
+		}.start();
+	}
+	class Updater extends Thread {
+	    private static final long DELAY = 3000; // three second
+
+	    public Updater() {
+	    	super("Updater");
+	    }
+
+	    @Override
+	    public void run() {
+	    	while (isRunning) {
+	    		try {
+	    			if(mp==null)
+	    			{
+	    				mp = new MediaPlayer();
+	    			}
+	    			if(!mp.isPlaying())
+	    			{
+	    				plManger.isLooping = true;
+	    				String path = plManger.getNextItemURL();
+	    				if(!path.startsWith("/"))
+	    				{
+	    					if(!isConnected(context))
+	    					{
+		    					handler.sendEmptyMessage(myHandlerAction.showSorryMessage);
+		    					sleep(DELAY);
+		    					handler.sendEmptyMessage(myHandlerAction.dismissDialog);
+	    					}
+	    				}
+	    				if(path!= "")
+	    				{
+	    					handler.sendEmptyMessage(myHandlerAction.showWaitMessage);
+		    				mp.stop();
+		    				mp.reset();
+	    					mp.setDataSource(path);
+		            		mp.prepare();
+		            		mp.start();
+		            		handler.sendEmptyMessage(myHandlerAction.dismissDialog);
+	    				}
+	    			}
+	    			Thread.sleep(DELAY);
+	    		}
+	    		catch (Exception e) {
+	    			e.printStackTrace();
+	    			isRunning = false;
+	    		}
+	    	}
+	    }
+	}
+	private void startService(){
+    	Intent intent = new Intent(this, PlayingService.class);
+    	//intent.putExtra(QuranDataService.DWONLOAD_TYPE_KEY, PlayingService.DOWNLOAD_QURAN_IMAGES);
+    	if (!s.isRunning)
+    		startService(intent);
+    	
+    	bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    }
 }
