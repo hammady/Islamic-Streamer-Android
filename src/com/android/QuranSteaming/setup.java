@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.widget.ArrayAdapter;
 import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class setup extends Activity {
@@ -12,6 +13,7 @@ public class setup extends Activity {
 	String[] tableColumns;
 	Spinner spnLang;
 	Spinner spnSites;
+	TextView tvLabel;
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -22,6 +24,11 @@ public class setup extends Activity {
         	setContentView(R.layout.setup_ar);
         spnLang = (Spinner)findViewById(R.id.spnLang);
         spnSites = (Spinner)findViewById(R.id.spnSites);
+        tvLabel = (TextView)findViewById(R.id.tvLang);
+        if(QuranSteaming.language.equalsIgnoreCase("EN"))
+        	tvLabel.setText(ArabicUtilities.reshape(getApplication().getString(R.string.tvLang)));
+        else
+        	tvLabel.setText(ArabicUtilities.reshape(getApplication().getString(R.string.tvLang_ar)));
         dbaAdabter = new DBAdapter(getBaseContext());
         fillSites();
     }
