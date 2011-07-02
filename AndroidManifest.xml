@@ -18,7 +18,7 @@
         </activity>
         <activity android:name=".DownloadProgress"  android:label="Download/التحميل" android:configChanges="locale">
         </activity>
-        <service android:name=".PlayingClass" android:enabled="true" />
+        <service android:name=".PlayingService" android:enabled="true" />
     </application>
 <supports-screens
 android:smallScreens="true"
