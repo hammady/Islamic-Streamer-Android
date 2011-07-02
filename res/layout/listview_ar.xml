@@ -2,11 +2,11 @@
 <LinearLayout
   xmlns:android="http://schemas.android.com/apk/res/android"
   android:orientation="vertical"
-  android:layout_width="match_parent"
+  android:layout_width="fill_parent"
   android:layout_height="20pt">
     <RelativeLayout
     android:orientation="vertical"
-    android:layout_width="match_parent" android:layout_weight="1"
+    android:layout_width="fill_parent" android:layout_weight="1"
     android:id="@+id/alaListItemId"
     android:layout_height="fill_parent">
         <CheckBox
@@ -48,7 +48,6 @@
         android:visibility="invisible" />
         
         <ImageView 
-        android:src="@drawable/playing2"
         android:layout_width="20px"
         android:layout_height="20px"
         android:saveEnabled="true"
