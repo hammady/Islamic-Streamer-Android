@@ -7,9 +7,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+
 import android.app.Activity;
-import android.app.ActivityManager;
-import android.app.ActivityManager.RunningServiceInfo;
 import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -34,6 +33,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
+import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.ImageButton;
@@ -43,7 +43,6 @@ import android.widget.SimpleCursorAdapter;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.AdapterView.OnItemSelectedListener;
 
 public class QuranSteaming extends Activity  {
 	static enum playMode{
@@ -164,7 +163,7 @@ public class QuranSteaming extends Activity  {
         PlayingService.setMainActivity(this);
         //creating an intent for the service        
 	    Intent intent = new Intent(this,PlayingService.class);
-	    ComponentName x= startService(intent); 
+	    //ComponentName x= startService(intent); 
 	    bindService(intent, mConnection, 0);
 		//doBindService();
 		//showHideMenu();
@@ -393,7 +392,13 @@ public class QuranSteaming extends Activity  {
 			else 
 				from = new String[] { "category_name_a"};
 			int[] to = new int[] { android.R.id.text1 }; 
-			SimpleCursorAdapter sca = new SimpleCursorAdapter(this,android.R.layout.simple_spinner_item, cr, from, to);
+			SimpleCursorAdapter sca = new SimpleCursorAdapter(
+					this,android.R.layout.simple_spinner_item, cr, from, to){
+				@Override
+				public void setViewText(TextView v, String text){
+					v.setText(ArabicUtilities.reshape(text));
+				}
+			};
 			sca.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			spnCategory.setAdapter(sca);
 			spnShaikh.setSelection(0);
@@ -450,7 +455,15 @@ public class QuranSteaming extends Activity  {
 			else 
 				from = new String[] { "shaikh_name_a"};
 			int[] to = new int[] { android.R.id.text1 }; 
-			SimpleCursorAdapter sca = new SimpleCursorAdapter(this,android.R.layout.simple_spinner_item, cr, from, to);
+			SimpleCursorAdapter sca = new SimpleCursorAdapter
+				(this,android.R.layout.simple_spinner_item, cr, from, to){
+				@Override
+				public void setViewText(TextView v, String text){
+					v.setText(ArabicUtilities.reshape(text));
+				}
+			};
+			
+			
 			sca.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			spnShaikh.setAdapter(sca);
 			spnShaikh.setSelection(0);
@@ -1164,6 +1177,8 @@ public class QuranSteaming extends Activity  {
 				//download(lvSurah.getAdapter());
 			}});
 	}
+	
+	/*
 	private void showHideMenu()
 	{
 		if((s!=null)&&(s.getIsPlaying()))
@@ -1175,6 +1190,8 @@ public class QuranSteaming extends Activity  {
 			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);			
 		}
 	}
+	*/
+	
 	@Override
 	protected void onDestroy() {
 	  super.onDestroy();
@@ -1305,6 +1322,8 @@ public class QuranSteaming extends Activity  {
 			e.printStackTrace();
 		}
     }
+	
+	/*
 	private boolean isMyServiceRunning() {
 	    ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
 	    for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
@@ -1313,5 +1332,5 @@ public class QuranSteaming extends Activity  {
 	        }
 	    }
 	    return false;
-	}
+	}*/
 }
