@@ -1,6 +1,7 @@
 package com.android.QuranSteaming;
 
 import java.io.File;
+import java.io.IOException;
 
 import android.content.Context;
 import android.database.Cursor;
@@ -19,6 +20,14 @@ public class PlaylistManager {
 		PlaylistManager.playingIndex = playingIndex;
 	}
 	public PlaylistManager() {
+		try 
+		{
+			dbaAdabter.createDataBase();
+		} 
+		catch (IOException ioe) 
+		{
+			throw new Error("Unable to create database");
+		}
 		try 
 		{
 			dbaAdabter.openDataBase();

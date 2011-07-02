@@ -8,6 +8,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.app.ActivityManager.RunningServiceInfo;
 import android.app.ProgressDialog;
 import android.content.ComponentName;
 import android.content.Context;
@@ -49,7 +51,7 @@ public class QuranSteaming extends Activity  {
 		singleItem,
 		empty
 	}
-	private static class HandlerAction{
+	static class HandlerAction{
 		final int HideMenuBar = 10;
 		public int getHideMenuBar() {
 			return HideMenuBar;
@@ -64,7 +66,7 @@ public class QuranSteaming extends Activity  {
 	};
 	static HandlerAction myHandlerAction= new HandlerAction();
 	public static boolean isRunning = false;
-	PlaylistManager plManger = new PlaylistManager();
+	PlaylistManager plManger;
 	public static DBAdapter dbaAdabter;
 	String[] tableColumns;
 	public static String select ="select";
@@ -91,7 +93,7 @@ public class QuranSteaming extends Activity  {
 	static View alaMenuLayout;
 	static String selectedSurahURL;
 	static boolean isPausedDueToCall = false;
-	private Updater playlistUpdater=new Updater();
+	//private Updater playlistUpdater=new Updater();
 	/**
 	 * buttons definition	
 	 */
@@ -109,8 +111,6 @@ public class QuranSteaming extends Activity  {
 	ListAdapter arrayAdapter;
 	private PlayingService s;
 	private static boolean waitTillPlay=false;
-	
-	//api =  .Stub.asInterface(service);
 
 	public static Handler handler = new Handler() {
 		@Override
@@ -162,14 +162,12 @@ public class QuranSteaming extends Activity  {
         super.onCreate(savedInstanceState);
         selectedCount=0;
         PlayingService.setMainActivity(this);
-        
-        //creating an intent for the service
-        //final Intent playingService = new Intent(this, PlayingService.class);
-        Intent intent = new Intent(this,PlayingService.class);
-        startService(intent); 
-        //bindService(intent, mConnection, 0);
+        //creating an intent for the service        
+	    Intent intent = new Intent(this,PlayingService.class);
+	    ComponentName x= startService(intent); 
+	    bindService(intent, mConnection, 0);
 		//doBindService();
-		showHideMenu();
+		//showHideMenu();
         dbaAdabter = new DBAdapter(getBaseContext());
         //checking db existance
 		try 
@@ -1049,9 +1047,15 @@ public class QuranSteaming extends Activity  {
 	}
 	private void onPauseClick(View v)
 	{
-		//stopService(new Intent(this,PlayingService.class));
-		stopStreamingAudio((View) v.getParent());
-		isRunning= false;
+		if(playingMode==playMode.singleItem)
+		{
+			stopStreamingAudio((View) v.getParent());
+			isRunning= false;
+		}
+		else
+		{
+			
+		}
 	}
 	private void moveToNext(View view)
 	{
@@ -1187,13 +1191,13 @@ public class QuranSteaming extends Activity  {
 	  
 	}
 	private ServiceConnection mConnection = new ServiceConnection() {
-
+		@Override
 		public void onServiceConnected(ComponentName className, IBinder binder) {
 			s = ((PlayingService.MyBinder) binder).getService();
 			Toast.makeText(QuranSteaming.this, "Connected",
 					Toast.LENGTH_SHORT).show();
 		}
-
+		@Override
 		public void onServiceDisconnected(ComponentName className) {
 			s = null;
 		}
@@ -1288,9 +1292,26 @@ public class QuranSteaming extends Activity  {
 	private void startService(){
     	Intent intent = new Intent(this, PlayingService.class);
     	//intent.putExtra(QuranDataService.DWONLOAD_TYPE_KEY, PlayingService.DOWNLOAD_QURAN_IMAGES);
-    	if (!s.isRunning)
-    		startService(intent);
-    	
-    	bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    	try{
+	    	if ((s==null) ||(!s.isRunning))
+	    		startService(intent);
+	    	boolean b=getApplicationContext().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+	    	if(b)
+	    	{
+	    		return;
+	    	}
+    	}
+    	catch (Exception e) {
+			e.printStackTrace();
+		}
     }
+	private boolean isMyServiceRunning() {
+	    ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+	    for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+	        if ("com.android.QuranSteaming.PlayingService".equals(service.service.getClassName())) {
+	            return true;
+	        }
+	    }
+	    return false;
+	}
 }

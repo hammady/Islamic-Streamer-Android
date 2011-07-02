@@ -177,7 +177,6 @@ public class DBAdapter{
 			try {
 				getDb().execSQL(sql);
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
         return cr;
@@ -207,7 +206,6 @@ public class DBAdapter{
 				}
 				
 			} catch (SQLException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 				Toast.makeText(context,"10"+e.getMessage(),Toast.LENGTH_LONG).show();
 			}
