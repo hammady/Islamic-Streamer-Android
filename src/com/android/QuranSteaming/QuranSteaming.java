@@ -64,6 +64,7 @@ public class QuranSteaming extends Activity  {
 		final int showSorryMessage = 2;
 		final int showWaitMessage= 3;
 		final int showPlayMenu = 4;
+		final int onPauseAction = 5;
 	};
 	static HandlerAction myHandlerAction= new HandlerAction();
 	public static boolean isRunning = false;
@@ -169,6 +170,11 @@ public class QuranSteaming extends Activity  {
 			else if(msg.what==myHandlerAction.showPlayMenu)
 			{
 				showHideMenu();
+			}
+			else if(msg.what==myHandlerAction.onPauseAction)
+			{
+				alaMenuLayout.findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
+				alaMenuLayout.findViewById(R.id.btnStopStream).setVisibility(View.INVISIBLE);
 			}
 		}
 		};
@@ -409,7 +415,14 @@ public class QuranSteaming extends Activity  {
 			else 
 				from = new String[] { "category_name_a"};
 			int[] to = new int[] { android.R.id.text1 }; 
-			SimpleCursorAdapter sca = new SimpleCursorAdapter(this,android.R.layout.simple_spinner_item, cr, from, to);
+			SimpleCursorAdapter sca = new SimpleCursorAdapter
+				(this,android.R.layout.simple_spinner_item, cr, from, to){
+				@Override
+				public void setViewText(TextView v, String text){
+					v.setText(ArabicUtilities.reshape(text));
+				}
+			};
+
 			sca.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			spnCategory.setAdapter(sca);
 			spnShaikh.setSelection(0);
@@ -466,7 +479,14 @@ public class QuranSteaming extends Activity  {
 			else 
 				from = new String[] { "shaikh_name_a"};
 			int[] to = new int[] { android.R.id.text1 }; 
-			SimpleCursorAdapter sca = new SimpleCursorAdapter(this,android.R.layout.simple_spinner_item, cr, from, to);
+			SimpleCursorAdapter sca = new SimpleCursorAdapter
+				(this,android.R.layout.simple_spinner_item, cr, from, to){
+				@Override
+				public void setViewText(TextView v, String text){
+					v.setText(ArabicUtilities.reshape(text));
+				}
+			};
+
 			sca.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
 			spnShaikh.setAdapter(sca);
 			spnShaikh.setSelection(0);
@@ -1071,6 +1091,7 @@ public class QuranSteaming extends Activity  {
 		else
 		{
 			s.isRunning= false;
+			handler.sendEmptyMessage(myHandlerAction.onPauseAction);
 		}
 	}
 	private void moveToNext(View view)
@@ -1186,6 +1207,7 @@ public class QuranSteaming extends Activity  {
 	 
 	  try {
 	    //api.removeListener(collectorListener);
+		  s.isRunning= false;
 		  stopService(new Intent(this, PlayingService.class));
 		  unbindService(mConnection);
 	  } catch (Throwable t) {
@@ -1296,22 +1318,7 @@ public class QuranSteaming extends Activity  {
 	    	}
 	    }
 	}
-	private void startService(){
-    	Intent intent = new Intent(this, PlayingService.class);
-    	//intent.putExtra(QuranDataService.DWONLOAD_TYPE_KEY, PlayingService.DOWNLOAD_QURAN_IMAGES);
-    	try{
-	    	if ((s==null) ||(!s.isRunning))
-	    		startService(intent);
-	    	boolean b=getApplicationContext().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-	    	if(b)
-	    	{
-	    		return;
-	    	}
-    	}
-    	catch (Exception e) {
-			e.printStackTrace();
-		}
-    }
+	
 	private boolean isMyServiceRunning() {
 	    ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
 	    for (RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {

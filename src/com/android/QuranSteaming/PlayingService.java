@@ -134,7 +134,7 @@ public class PlayingService extends Service{
 	}
 	public void moveToPrev()
 	{
-		plManger.setPlayingIndex(plManger.getPlayingIndex(-2));
+		plManger.setPlayingIndex(plManger.getPlayingIndex(-1));
 		mp.stop();		
 	}
 	public static boolean isConnected(Context context) 
