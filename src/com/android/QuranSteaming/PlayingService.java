@@ -23,6 +23,7 @@ public class PlayingService extends Service{
     public static QuranSteaming MAIN_ACTIVITY;   
 	private final IBinder mBinder = new MyBinder();
 	public boolean isRunning = false;
+	public boolean isPaused = false;
 	@Override
 	public void onCreate() {
 		super.onCreate();
@@ -33,7 +34,7 @@ public class PlayingService extends Service{
 	public void onStart(Intent intent, int startId) {
 		super.onStart(intent, startId);
 		Log.d(TAG, "Started");
-		if (!updater.isRunning()) {
+		if (!(updater==null)) {
 		      updater.start();
 		    }
 	}
@@ -50,10 +51,9 @@ public class PlayingService extends Service{
 			mp.stop();
 			mp.release();
 		}
-		if (updater.isRunning()) {
-		      updater.interrupt();
-		    }
-		    updater = null;
+		if(updater!= null)
+			updater.interrupt();
+		updater = null;
 		Log.d(TAG, "Destroyed");
 	}
 	@Override
@@ -63,8 +63,6 @@ public class PlayingService extends Service{
 	// ///// Updater Thread
 	class Updater extends Thread {
 	    private static final long DELAY = 2000; // one second
-	    private boolean isRunning = false;
-
 	    public Updater() {
 	    	super("Updater");
 	    }
@@ -76,26 +74,33 @@ public class PlayingService extends Service{
 	    		try {
 	    			if(!mp.isPlaying())
 	    			{
-	    				plManger.isLooping = true;
-	    				String path = plManger.getNextItemURL();
-	    				if(!path.startsWith("/"))
+	    				if(isPaused)
 	    				{
-	    					if(!isConnected(MAIN_ACTIVITY.getBaseContext()))
-	    					{
-	    						QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.showSorryMessage);
-		    					sleep(DELAY);
-		    					QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.dismissDialog);
-	    					}
+	    					mp.start();
 	    				}
-	    				if(path!= "")
+	    				else
 	    				{
-	    					QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.showWaitMessage);
-		    				mp.stop();
-		    				mp.reset();
-	    					mp.setDataSource(path);
-		            		mp.prepare();
-		            		mp.start();
-		            		QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.dismissDialog);
+		    				plManger.isLooping = true;
+		    				String path = plManger.getNextItemURL();
+		    				if(!path.startsWith("/"))
+		    				{
+		    					if(!isConnected(MAIN_ACTIVITY.getBaseContext()))
+		    					{
+		    						QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.showSorryMessage);
+			    					sleep(DELAY);
+			    					QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.dismissDialog);
+		    					}
+		    				}
+		    				if(path!= "")
+		    				{
+		    					QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.showWaitMessage);
+			    				mp.stop();
+			    				mp.reset();
+		    					mp.setDataSource(path);
+			            		mp.prepare();
+			            		mp.start();
+			            		QuranSteaming.handler.sendEmptyMessage(QuranSteaming.myHandlerAction.dismissDialog);
+		    				}
 	    				}
 	    			}
 	    			Thread.sleep(DELAY);
@@ -104,12 +109,13 @@ public class PlayingService extends Service{
 	    			e.printStackTrace();
 	    			isRunning = false;
 	    		}
+	    		}else if(mp.isPlaying())
+	    		{
+	    			mp.pause();
+	    			isPaused = true;
 	    		}
 	    	}
 	    }
-	    public boolean isRunning() {
-	        return this.isRunning;
-	    }	    
 	}
 	public boolean getIsPlaying() {
         return isPlaying;
@@ -128,7 +134,7 @@ public class PlayingService extends Service{
 	}
 	public void moveToPrev()
 	{
-		plManger.setPlayingIndex(plManger.getPlayingIndex()-2);
+		plManger.setPlayingIndex(plManger.getPlayingIndex(-2));
 		mp.stop();		
 	}
 	public static boolean isConnected(Context context) 
@@ -149,12 +155,13 @@ public class PlayingService extends Service{
 	  }
 	public void continuePlaying()
 	{
-		plManger.setPlayingIndex(plManger.getPlayingIndex()-2);
+		plManger.setPlayingIndex(plManger.getPlayingIndex(0));
 		mp.stop();		
 	}
 	public void stopPlaying()
 	{
 		isRunning = false;
+		isPaused  = true;
 	}
 	
 }

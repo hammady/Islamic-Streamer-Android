@@ -13,8 +13,36 @@ public class PlaylistManager {
 	private static int playingIndex =0;
 	private static String static_url="";
 	boolean isLooping= true;
-	public int getPlayingIndex() {
-		return playingIndex;
+	public int getPlayingIndex(int index) {
+		if(index==0)
+			return playingIndex;
+		else
+		{
+			int prevIndex=playingIndex;
+			Cursor cr1;
+			if(index>0)
+			{
+				cr1=dbaAdabter.getDb().rawQuery("select min(a._id) id from playlist_item a where a._id>"+playingIndex,null);
+				if((cr1.getCount()==0)&&(isLooping))
+					return 0;
+			}
+			else
+			{
+				cr1=dbaAdabter.getDb().rawQuery("select max(a._id) id from playlist_item a where a._id<"+playingIndex,null);
+				if((cr1.getCount()==0)&&(isLooping))
+					cr1=dbaAdabter.getDb().rawQuery("select max(a._id) id from playlist_item a",null);
+				else
+					return prevIndex;
+				cr1.moveToFirst();
+				prevIndex= cr1.getInt(cr1.getColumnIndex("id"));
+				cr1=dbaAdabter.getDb().rawQuery("select max(a._id) id from playlist_item a where a._id<"+prevIndex,null);
+				if((cr1.getCount()==0))
+					prevIndex = -1;
+			}
+			cr1.moveToFirst();
+			prevIndex= cr1.getInt(cr1.getColumnIndex("id"));
+		}		
+		return index;
 	}
 	public void setPlayingIndex(int playingIndex) {
 		PlaylistManager.playingIndex = playingIndex;

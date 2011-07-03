@@ -63,6 +63,7 @@ public class QuranSteaming extends Activity  {
 		final int notifyListViewAdapter = 1;
 		final int showSorryMessage = 2;
 		final int showWaitMessage= 3;
+		final int showPlayMenu = 4;
 	};
 	static HandlerAction myHandlerAction= new HandlerAction();
 	public static boolean isRunning = false;
@@ -109,10 +110,21 @@ public class QuranSteaming extends Activity  {
 	static ListView lvSurah;	
 	ArrayList<ProjectObject> Surahs=null;
 	ListAdapter arrayAdapter;
-	private PlayingService s;
+	public static PlayingService s;
 	private static boolean waitTillPlay=false;
 
 	public static Handler handler = new Handler() {
+		private void showHideMenu()
+		{
+			if((s!=null)&&(s.getIsPlaying()))
+			{
+				alaMenuLayout.setVisibility(View.VISIBLE);
+				alaMenuLayout.findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
+				alaMenuLayout.findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
+				//findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
+				alaMenuLayout.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);			
+			}
+		}
 		@Override
 		public void handleMessage(Message msg) {
 			final Resources r=context.getResources();
@@ -154,6 +166,10 @@ public class QuranSteaming extends Activity  {
 	        	else
 	        		progDailog = ProgressDialog.show(context,ArabicUtilities.reshape(r.getString(R.string.txtStreamingText_ar)), ArabicUtilities.reshape(r.getString(R.string.txtStreamingWaitText_ar)),true);
 			}
+			else if(msg.what==myHandlerAction.showPlayMenu)
+			{
+				showHideMenu();
+			}
 		}
 		};
     /** Called when the activity is first created. */
@@ -164,10 +180,9 @@ public class QuranSteaming extends Activity  {
         PlayingService.setMainActivity(this);
         //creating an intent for the service        
 	    Intent intent = new Intent(this,PlayingService.class);
-	    ComponentName x= startService(intent); 
-	    bindService(intent, mConnection, 0);
-		//doBindService();
-		//showHideMenu();
+	    if(!isMyServiceRunning())
+	    	startService(intent); 
+	    bindService(intent, mConnection, BIND_AUTO_CREATE);
         dbaAdabter = new DBAdapter(getBaseContext());
         //checking db existance
 		try 
@@ -246,6 +261,7 @@ public class QuranSteaming extends Activity  {
 		fillCategoy(); 
 		addTelephoneListener();
 		isMediaPlayingThread();
+		//showHideMenu();
     }
     private void addTelephoneListener()
     {
@@ -1022,6 +1038,7 @@ public class QuranSteaming extends Activity  {
 			v.findViewById(R.id.btnPlayNext).setVisibility(View.INVISIBLE);
 			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.INVISIBLE);
 			v.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
+			isRunning = true;
 			return;
 		}
 		else if(selectedCount==1)
@@ -1031,6 +1048,8 @@ public class QuranSteaming extends Activity  {
 			v.findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);
 			v.findViewById(R.id.btnPlayNext).setVisibility(View.INVISIBLE);
 			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.INVISIBLE);
+			isRunning = true;
+			return;
 		}
 		else
 		{
@@ -1040,10 +1059,7 @@ public class QuranSteaming extends Activity  {
 			v.findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
 			v.findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
 		}
-		isRunning = true;
-		
-		//playlistUpdater.start();
-		startService();
+		s.isRunning=true;
 	}
 	private void onPauseClick(View v)
 	{
@@ -1054,7 +1070,7 @@ public class QuranSteaming extends Activity  {
 		}
 		else
 		{
-			
+			s.isRunning= false;
 		}
 	}
 	private void moveToNext(View view)
@@ -1164,24 +1180,14 @@ public class QuranSteaming extends Activity  {
 				//download(lvSurah.getAdapter());
 			}});
 	}
-	private void showHideMenu()
-	{
-		if((s!=null)&&(s.getIsPlaying()))
-		{
-			findViewById(R.id.alaMenuLayout).setVisibility(View.VISIBLE);
-			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnPlayNext).setVisibility(View.VISIBLE);
-			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnPlayPrevious).setVisibility(View.VISIBLE);
-			//findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStartStream).setVisibility(View.VISIBLE);
-			findViewById(R.id.alaMenuLayout).findViewById(R.id.btnStopStream).setVisibility(View.VISIBLE);			
-		}
-	}
 	@Override
 	protected void onDestroy() {
 	  super.onDestroy();
 	 
 	  try {
 	    //api.removeListener(collectorListener);
-	    //unbindService(serviceConnection);
+		  stopService(new Intent(this, PlayingService.class));
+		  unbindService(mConnection);
 	  } catch (Throwable t) {
 	    // catch any issues, typical for destroy routines
 	    // even if we failed to destroy something, we need to continue destroying
@@ -1194,6 +1200,7 @@ public class QuranSteaming extends Activity  {
 		@Override
 		public void onServiceConnected(ComponentName className, IBinder binder) {
 			s = ((PlayingService.MyBinder) binder).getService();
+			handler.sendEmptyMessage(myHandlerAction.showPlayMenu);
 			Toast.makeText(QuranSteaming.this, "Connected",
 					Toast.LENGTH_SHORT).show();
 		}
